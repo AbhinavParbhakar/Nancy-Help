@@ -1,30 +1,68 @@
 import os
+import pandas as pd
+import time
 
-def dfs()->None:
-    pass
+class ColumnNames:
+    def __init__(self) -> None:
+        self.file_names = self.dfs_wrapper()
+        self.column_names = self.get_column_names(self.file_names)
     
-def check_duplicates(data:list):
-    duplicatates = {}
-    found_html = False
+    def get_cols(self)->list[str]:
+        return self.column_names
     
-    for datum in data:
-        try:
-            found = duplicatates[datum]
-            found_html = True
-        except:
-            duplicatates[datum] = True
+    def extract_names(self,names:dict[str,bool],file:str)->None:
+        sheet_name = "Total Volume Class Breakdown"
+        frame = pd.read_excel(io=file,sheet_name=[sheet_name],engine='openpyxl')
+        df = frame["Total Volume Class Breakdown"]
         
-    return found_html
+        columns_index = df.index[df['Leg'] == '% Total'].tolist()[0]
+        area_interest = frame[sheet_name].iloc[columns_index + 1:]
+        
+        
+        for i in range(area_interest.__len__()):
+            if i % 2 == 0:
+                label = area_interest['Leg'].iloc[i]
+                try:
+                    found = names[label]
+                except:
+                    names[label] = True    
+        
 
-def dfs_wrapper()->None:
-    locations = ['./2022','./2023']
-    file_names = []
-    
-    for i in range(len(locations)):
-        for root,subs,files in os.walk(locations[i]):
-            file_names.extend(files)
-    
-    print(check_duplicates(file_names))
+    def get_column_names(self,files:list[str])->list[str]:
+        distinct_columns = {}
+        for file in files:
+            try:
+                self.extract_names(distinct_columns,file=file)
+            except Exception as e:
+                print(e.args)
+                print(f'{file} caused a problem')
+            
+        return list(distinct_columns.keys())
+        
+    def check_duplicates(self,data:list):
+        duplicatates = {}
+        found_html = False
+        
+        for datum in data:
+            try:
+                found = duplicatates[datum]
+                found_html = True
+            except:
+                duplicatates[datum] = True
+            
+        return found_html
 
+    def dfs_wrapper(self)->None:
+        locations = ['./2022','./2023']
+        file_names = []
+        
+        for i in range(len(locations)):
+            for root,subs,files in os.walk(locations[i]):
+                updated_files = [root.replace('\\','/') + '/' + file for file in files]
+                file_names.extend(updated_files)
+                
+                
+        return file_names
 if __name__ == "__main__":
-    dfs_wrapper()
+    cl = ColumnNames()
+    
