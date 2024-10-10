@@ -7,6 +7,39 @@ class ColumnNames:
         self.file_names = self.dfs_wrapper()
         self.column_names = self.get_column_names(self.file_names)
     
+    def find_normal(self)->int:
+        """
+        Find files that have the direction listed in the column
+        """
+        sheets = ["Total Volume Class Breakdown"]
+        directions = {
+            'North':True,
+            'East':True,
+            'West':True,
+            'South':True
+        }
+        
+        normal_count = 0
+        for file in self.file_names:
+            directions_found = False
+            data : dict[str,pd.DataFrame] = pd.read_excel(io=file,sheet_name=sheets)
+            total = data[sheets[0]]
+            cols = total.columns.tolist()
+            i = 0
+            while not directions_found and i < len(cols):
+                try:
+                    found = directions[cols[i]]
+                    directions_found = True
+                except:
+                    pass
+            
+                i += 1
+        
+            if  not directions_found:
+                normal_count += 1
+                print(f'{file} is anamoly')
+        return normal_count
+        
     def get_cols(self)->list[str]:
         return self.column_names
     
@@ -65,4 +98,7 @@ class ColumnNames:
         return file_names
 if __name__ == "__main__":
     cl = ColumnNames()
+    anomalies = cl.find_normal()
+    
+    print(f'{anomalies} anomalies')
     

@@ -29,12 +29,21 @@ class ParseInfo:
              
         # get directional data
         print(total.head(n=20))
+        print(total.columns)
         
         # print(data['Summary'][data['Summary'].columns[1]].iloc[8])
+    def get_directiontial_date(self,total:pd.DataFrame):
+        directions = {
+            'North':True,
+            'East':True,
+            'West':True,
+            'South':True
+        }
+        
 
 if __name__ == "__main__":
     cols = ColumnNames()
     pi = ParseInfo(cols.get_cols())
-    pi.parse_file('./2023/12/13/1148981.xlsx')
+    pi.parse_file('./2023/12/13/1148946.xlsx')
 
 
