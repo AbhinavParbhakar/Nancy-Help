@@ -98,7 +98,4 @@ class ColumnNames:
         return file_names
 if __name__ == "__main__":
     cl = ColumnNames()
-    anomalies = cl.find_normal()
-    
-    print(f'{anomalies} anomalies')
     
