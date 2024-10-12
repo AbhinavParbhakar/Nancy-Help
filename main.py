@@ -78,17 +78,16 @@ class ParseInfo:
             
             
             # add Study Name
-            study_name_index = summary.index[summary[summary_col_1] == 'Study Name'].tolist()[0]
-            sheet_data['Study Name'] = summary.iloc[study_name_index][summary_col_1]
+            sheet_data[summary_col_1] = summary_col_2
             
             
             # add Project
             project_index = summary.index[summary[summary_col_1] == 'Project'].tolist()[0]
-            sheet_data['Project'] = summary.iloc[project_index][summary_col_1]
+            sheet_data['Project'] = summary.iloc[project_index][summary_col_2]
             
             # add location
             location_index = summary.index[summary[summary_col_1] == 'Location'].tolist()[0]
-            sheet_data['Location'] = summary.iloc[location_index][summary_col_1]
+            sheet_data['Location'] = summary.iloc[location_index][summary_col_2]
             
             # get lat-long
             lat_long_index = summary.index[summary[summary_col_1] == 'Latitude and Longitude'].tolist()[0]
