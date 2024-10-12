@@ -6,7 +6,15 @@ from datetime import datetime
 
 class ParseInfo:
     def __init__(self,extra_cols=[]) -> None:
-        self.columns = ['Id', 'Date','Time (hrs)', 'Lat', 'Long', 'Southbound', 'Westbound', 'Northbound', 'Eastbound', 'Int. Total','Road Segment Type']
+        self.columns = ['Id', 'Date','Time (hrs)', 'Lat', 'Long', 'Road Segment Type']
+        self.directions = ['Southbound', 'Westbound', 'Northbound', 'Eastbound']
+        final_col = 'Int. Total'
+        
+        for direction in self.directions:
+            self.columns.append(direction)
+            self.columns.extend([f'{direction[0]} {ec}' for ec in extra_cols])
+        
+        self.columns.append(final_col)
         self.columns.extend(extra_cols)
         self.files_to_delete = []
         self.main_frame = pd.DataFrame(columns=self.columns)
@@ -34,7 +42,7 @@ class ParseInfo:
                 new_frame = pd.DataFrame(self.reformat_dict(return_data))
                 self.main_frame = pd.concat([self.main_frame,new_frame],ignore_index=True)
             
-        # self.main_frame.to_excel(excel_file,index=False)
+        self.main_frame.to_excel(excel_file,index=False)
     
     def parse_file(self,file:str)->dict:
         """
@@ -72,6 +80,9 @@ class ParseInfo:
             lat_long = summary.iloc[lat_long_index][summary_col_2].split(',')
             sheet_data['Lat'] =  float(lat_long[0])
             sheet_data['Long'] = float(lat_long[1])
+            
+            # classify as midblock or intersection
+            self.get_road_type(sheet_data,total)
                 
             # get directional data
             grand_total_index = self.get_directiontial_data(sheet_data,total)
@@ -79,9 +90,6 @@ class ParseInfo:
             # add the int total, assume that it is in the last column
             grand_total = int(total.iloc[grand_total_index][total.columns[-1]].iloc[0])
             sheet_data['Int. Total'] = grand_total
-            
-            # classify as midblock or intersection
-            self.get_road_type(sheet_data,total)
             
             # extract categories
             self.extract_attributes(sheet_data,total)
@@ -135,12 +143,13 @@ class ParseInfo:
         cols = total.columns.tolist()
         directions_present = []
         directions_total = []
+        app_totals_index = []
         
         direction_row = 0
         grand_total_index = total.index[total[cols[0]] == 'Grand Total']
         start_row = 1
         
-        for col in cols:
+        for i,col in enumerate(cols):
             direction_name = total.iloc[direction_row][col]
             start_name = total.iloc[start_row][col] 
             try:
@@ -150,14 +159,17 @@ class ParseInfo:
                 this = 1
             
             if start_name == 'App Total':
+                app_totals_index.append(i + 1)
                 directions_total.append(int(total.iloc[grand_total_index][col].iloc[0]))
         
         for i in range(len(directions_present)):
             data_dict[directions_present[i]] = directions_total[i]
+            self.extract_attributes(data_dict,total.iloc[:,:app_totals_index[i]],modifier=f'{directions_present[i][0]} ')
+            
             
         return grand_total_index
          
-    def extract_attributes(self,data_dict:dict,total:pd.DataFrame):
+    def extract_attributes(self,data_dict:dict,total:pd.DataFrame,modifier=''):
         row_index = total.index[total['Leg'] == '% Total'].tolist()[0]
         labels = total.iloc[row_index + 1:]['Leg'].tolist()
         totals = total.iloc[row_index + 1:][total.columns[-1]].tolist()
@@ -169,7 +181,7 @@ class ParseInfo:
                 # only if data is not for Pedestrians and Bicycles on Crosswalk
                 if pd.notna(totals[i]):
                     try:
-                        data_dict[labels[i]] = int(totals[i])
+                        data_dict[modifier + labels[i]] = int(totals[i])
                     except:
                         print('here')
     
