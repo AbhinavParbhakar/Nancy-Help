@@ -6,12 +6,13 @@ from datetime import datetime
 
 class ParseInfo:
     def __init__(self,extra_cols=[]) -> None:
-        self.columns = ['Id', 'Date','Time (hrs)', 'Lat', 'Long', 'Road Segment Type']
+        self.columns = ['Id','Study Name','Project','Location', 'Date','Time (hrs)', 'Lat', 'Long', 'Road Segment Type']
         self.directions = ['Southbound', 'Westbound', 'Northbound', 'Eastbound']
+        self.movements = ['In','Out']
         final_col = 'Int. Total'
         
         for direction in self.directions:
-            self.columns.append(direction)
+            self.columns.extend([f'{direction} {mv}' for mv in self.movements])
             self.columns.extend([f'{direction[0]} {ec}' for ec in extra_cols])
         
         self.columns.append(final_col)
@@ -75,6 +76,20 @@ class ParseInfo:
             sheet_data['Date'] = file_breakdown[1] + '/' + file_breakdown[2] + '/' + file_breakdown[3]
             sheet_data['Time (hrs)'] = duration/one_hour
             
+            
+            # add Study Name
+            study_name_index = summary.index[summary[summary_col_1] == 'Study Name'].tolist()[0]
+            sheet_data['Study Name'] = summary.iloc[study_name_index][summary_col_1]
+            
+            
+            # add Project
+            project_index = summary.index[summary[summary_col_1] == 'Project'].tolist()[0]
+            sheet_data['Project'] = summary.iloc[project_index][summary_col_1]
+            
+            # add location
+            location_index = summary.index[summary[summary_col_1] == 'Location'].tolist()[0]
+            sheet_data['Location'] = summary.iloc[location_index][summary_col_1]
+            
             # get lat-long
             lat_long_index = summary.index[summary[summary_col_1] == 'Latitude and Longitude'].tolist()[0]
             lat_long = summary.iloc[lat_long_index][summary_col_2].split(',')
@@ -84,8 +99,11 @@ class ParseInfo:
             # classify as midblock or intersection
             self.get_road_type(sheet_data,total)
                 
-            # get directional data
-            grand_total_index = self.get_directiontial_data(sheet_data,total)
+            # get directional data for in
+            grand_total_index = self.get_directional_data_in(sheet_data,total)
+            
+            # get directional data for out
+            self.get_directional_data_out(sheet_data,total)
             
             # add the int total, assume that it is in the last column
             grand_total = int(total.iloc[grand_total_index][total.columns[-1]].iloc[0])
@@ -98,6 +116,116 @@ class ParseInfo:
         else:
             self.files_to_delete.append(file)
             return None
+        
+    def get_directional_data_out(self,data_dict:dict,total:pd.DataFrame):
+        """
+        Get out data for each dimension, which really means the all the flow going in the opposite direction
+        Super confusing even to me, but hey, that's how they asked for it
+        """
+        direction_num_mapping = {
+            'Southbound In' : 1,
+            'Westbound In' : 2,
+            'Northbound In' : 3,
+            'Eastbound In' : 4
+        }
+        
+        num_direction_mapping = {
+            1 : 'Southbound',
+            2 : 'Westbound',
+            3 : 'Northbound',
+            4 : 'Eastbound'
+        }
+        
+        movements = {
+            'Right' : True,
+            'Thru' : True,
+            'Left' : True,
+            'U-Turn' : True
+
+        }
+        
+        total_row_index = total.index[total['Leg'] == 'Grand Total'].tolist()[0]
+        direction_row = 0
+        start_row = 1
+        directions = []
+        movement_dict = {}
+        cols = total.columns.tolist()
+        
+        last_direction = ''
+        
+        # if data_dict['Date'] == '2022/10/17':
+        #     print(total.head())
+        
+        # populate the movement column
+        for col in cols:
+            # try to add last direction to last_direction
+            direction = total.iloc[direction_row][col]
+            movement = total.iloc[start_row][col]
+            try:
+                found = direction_num_mapping[f'{direction} In']
+                last_direction = direction
+            except:
+                pass
+            
+            try:
+                if movement == 'Direction':
+                    movement_dict[f'{last_direction[0]} Thru'] = total.iloc[total_row_index][col]
+                else:
+                    found = movements[movement]
+                    movement_dict[f'{last_direction[0]} {movement}'] = total.iloc[total_row_index][col]
+            except:
+                pass
+
+        for column in list(data_dict.keys()):
+            try:
+                direction_num = direction_num_mapping[column]
+                directions.append(direction_num)
+            except:
+                pass
+        
+
+        
+        for direction in directions:
+            # get directions for calculations
+            out_total = 0
+            thru_direction = direction + 2
+            if thru_direction == 6:
+                thru_direction = 2
+            elif thru_direction == 5:
+                thru_direction = 1
+            uturn_direction = direction + 0
+            counter_clockwise_direction = direction - 1
+            if counter_clockwise_direction < 1:
+                counter_clockwise_direction = 4
+            clockwise_direction = direction + 1
+            if clockwise_direction > 4:
+                clockwise_direction = 1
+            
+            # try to add each direction
+            try:
+                out_total += movement_dict[f'{num_direction_mapping[thru_direction][0]} Thru']
+            except:
+                pass
+                
+            try:
+                out_total += movement_dict[f'{num_direction_mapping[counter_clockwise_direction][0]} Left']
+            except:
+                pass
+            
+            try:
+                out_total += movement_dict[f'{num_direction_mapping[clockwise_direction][0]} Right']
+            except:
+                pass
+            
+            try:
+                out_total += movement_dict[f'{num_direction_mapping[uturn_direction][0]} U-Turn']
+            except:
+                pass
+            
+            data_dict[f'{num_direction_mapping[direction]} Out'] = out_total
+                
+            
+            
     
     def get_road_type(self,data_dict:dict,total:pd.DataFrame):
         """
@@ -130,7 +258,7 @@ class ParseInfo:
             data_dict[column_name] = "Intersection"
             
     
-    def get_directiontial_data(self,data_dict:dict,total:pd.DataFrame):
+    def get_directional_data_in(self,data_dict:dict,total:pd.DataFrame):
         """
         Add the directional data to the row, and return the row index for the grand total
         """
@@ -163,7 +291,7 @@ class ParseInfo:
                 directions_total.append(int(total.iloc[grand_total_index][col].iloc[0]))
         
         for i in range(len(directions_present)):
-            data_dict[directions_present[i]] = directions_total[i]
+            data_dict[f'{directions_present[i]} In'] = directions_total[i]
             self.extract_attributes(data_dict,total.iloc[:,:app_totals_index[i]],modifier=f'{directions_present[i][0]} ')
             
             
