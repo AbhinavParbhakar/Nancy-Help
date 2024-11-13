@@ -276,18 +276,25 @@ class ParseInfo:
         grand_total_index = total.index[total[cols[0]] == 'Grand Total']
         start_row = 1
         
+        # Create a flag to only allow app data to be read when one of the four directions that we care about has been read
+        found_direction = False
+        
+        # Turn it off after the app data column has been read
+        
         for i,col in enumerate(cols):
             direction_name = total.iloc[direction_row][col]
             start_name = total.iloc[start_row][col] 
             try:
                 found = directions[direction_name]
                 directions_present.append(direction_name)
+                found_direction = True
             except:
                 this = 1
             
-            if start_name == 'App Total':
+            if start_name == 'App Total' and found_direction:
                 app_totals_index.append(i + 1)
                 directions_total.append(int(total.iloc[grand_total_index][col].iloc[0]))
+                found_direction = False
         
         for i in range(len(directions_present)):
             data_dict[f'{directions_present[i]} In'] = directions_total[i]
