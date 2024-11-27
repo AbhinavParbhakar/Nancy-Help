@@ -17,7 +17,7 @@ def reformat_dict(data_dict:dict)->dict:
     
     return new_dict
 
-async def validate_data(file_name:str,auth_file_name:str):
+async def validate_data(file_name:str,auth_file_name:str,validation_file_name):
     """
     Validate the results from the miovision aggregate data.
     """
@@ -106,7 +106,7 @@ async def validate_data(file_name:str,auth_file_name:str):
         await context.close()
         await browser.close()
         
-        main_frame.to_excel("Validation_Results.xlsx",index=False)
+        main_frame.to_excel(validation_file_name,index=False)
     
     
 
@@ -122,11 +122,9 @@ def get_credentials(auth_file:str):
     context.close()
     page.close()
     browser.close()
-    
-    
-
 if __name__ == '__main__':
     auth_file = './python_auth.json'
-    excel_file = 'Miovision Aggregate Data.xlsx'
+    excel_file = 'Five File.xlsx'
+    validation_file_name = "Five_files.xlsx"
     #get_credentials(auth_file)
-    asyncio.run(validate_data(excel_file,auth_file))
+    asyncio.run(validate_data(excel_file,auth_file,validation_file_name))
