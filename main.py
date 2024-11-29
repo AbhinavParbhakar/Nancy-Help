@@ -31,12 +31,12 @@ class ParseInfo:
         
         return new_dict
     
-    def create_aggregate(self,files:list[str])->None:
+    def create_aggregate(self,files:list[str],file_name='./Miovision Aggregate Data.xlsx')->None:
         """
         Input a list of files and aggregate information inside.
         Creates an excel file as the output
         """
-        excel_file = './Miovision Aggregate Data.xlsx'
+        excel_file = file_name
         for file in files:
             return_data = self.parse_file(file)
             if return_data:
@@ -102,7 +102,7 @@ class ParseInfo:
             grand_total_index = self.get_directional_data_in(sheet_data,total)
             
             # get directional data for out
-            self.get_directional_data_out(sheet_data,total)
+            movement_dict = self.get_directional_data_out(sheet_data,total)
             
             # add the int total, assume that it is in the last column
             grand_total = int(total.iloc[grand_total_index][total.columns[-1]].iloc[0])
@@ -111,6 +111,7 @@ class ParseInfo:
             # extract categories
             self.extract_attributes(sheet_data,total)
             
+            self.update_directional_data_in(sheet_data,movement_dict)
             self.detect_one_ways(sheet_data)
             
             return sheet_data
@@ -167,20 +168,27 @@ class ParseInfo:
                 last_direction = direction
                 valid_direction_flag = True
             except:
+                if type(direction) == type(str()):
+                    if 'bound' in direction:
+                        valid_direction_flag = False
                 pass
             
             try:
                 # Check to see if we've hit the last column for the direction
                 # If so the valid direction should be set to false
-                if movement == "App Total":
-                    valid_direction_flag = False
-                elif valid_direction_flag:            
+                if valid_direction_flag:            
                     # Edge case for some files where instead of the 'Thru' Column, it has it under 'Direction'            
                     if movement == 'Direction':
                         movement_dict[f'{last_direction[0]} Thru'] = total.iloc[total_row_index][col]
                     else:
                         found = movements[movement]
-                        movement_dict[f'{last_direction[0]} {movement}'] = total.iloc[total_row_index][col]
+                        move = f'{last_direction[0]} {movement}'
+                        
+                        # This way, even if there are multiple movements detected, we add them up
+                        if move in movement_dict:
+                            movement_dict[move] += total.iloc[total_row_index][col]
+                        else:
+                            movement_dict[move] = total.iloc[total_row_index][col]
             except:
                 pass
 
@@ -231,6 +239,7 @@ class ParseInfo:
                 pass
             
             data_dict[f'{num_direction_mapping[direction]} Out'] = out_total
+        return movement_dict
                 
             
             
@@ -264,7 +273,44 @@ class ParseInfo:
             data_dict[column_name] = "Midblock"
         else:
             data_dict[column_name] = "Intersection"
-            
+    
+    def update_directional_data_in(self,data_dict:dict,movement_dict:dict):
+        """
+        Update the direcional data in.
+        
+        At this point, all of the movements have been recorded for each one in movement dict.
+        
+        For each movement, the direction in will be equal to the u-turn + right + thru +  left
+        """
+        
+        directions = [
+            'Northbound',
+            'Eastbound',
+            'Westbound',
+            'Southbound'
+            ]
+        
+        movements = [
+            'Right',
+            'Thru',
+            'Left',
+            'U-Turn'
+        ]
+        
+        for direction in directions:
+            if f'{direction} In' in data_dict:
+                new_total_in = 0
+                for movement in movements:
+                    if f'{direction[0]} {movement}' in movement_dict:
+                        new_total_in += movement_dict[f'{direction[0]} {movement}']
+                
+                # Only update if the new total is less than or equal to the old total
+                # This is the case because the update should essentially add a new in
+                # When the app total column in the original file was 0, however there
+                # was more than 0 for the different movements for the direction
+                if new_total_in >= data_dict[f'{direction} In']:
+                    data_dict[f'{direction} In'] = new_total_in
+                        
     
     def get_directional_data_in(self,data_dict:dict,total:pd.DataFrame):
         """
@@ -292,18 +338,20 @@ class ParseInfo:
         
         for i,col in enumerate(cols):
             direction_name = total.iloc[direction_row][col]
-            start_name = total.iloc[start_row][col] 
+            start_name = total.iloc[start_row][col]
             try:
                 found = directions[direction_name]
                 directions_present.append(direction_name)
                 found_direction = True
             except:
-                this = 1
-            
+                if type(direction_name) == type(''):          
+                  if 'bound' in direction_name:
+                    found_direction = False
+                pass
+
             if start_name == 'App Total' and found_direction:
                 app_totals_index.append(i + 1)
                 directions_total.append(int(total.iloc[grand_total_index][col].iloc[0]))
-                found_direction = False
         
         for i in range(len(directions_present)):
             data_dict[f'{directions_present[i]} In'] = directions_total[i]
@@ -336,7 +384,7 @@ class ParseInfo:
         direction_count = 0
         for d_in in direction_ins:
             # check to see how many direction in's are present - should be at least 2
-            if data_dict[d_in] > 0:
+            if d_in in data_dict:
                 # meaning that it is not np.nan
                 direction_count +=1
                 direction = d_in
@@ -345,11 +393,10 @@ class ParseInfo:
             opposite_direction = direction_num_mapping[direction] + 2
             if opposite_direction == 6:
                 opposite_direction = 2
-            elif opposite_direction == 5:
+            if opposite_direction == 5:
                 opposite_direction = 1
-            else:
-                data_dict[f'{num_direction_mapping[opposite_direction]} Out'] = data_dict[d_in]
-                data_dict[f'{num_direction_mapping[opposite_direction]} In'] = 0
+            data_dict[f'{num_direction_mapping[opposite_direction]} Out'] = data_dict[direction]
+            data_dict[f'{num_direction_mapping[opposite_direction]} In'] = 0
         
     
     def extract_attributes(self,data_dict:dict,total:pd.DataFrame,modifier=''):
@@ -373,22 +420,15 @@ class ParseInfo:
             os.remove(file)
 
 
-def get_error_files(files:list[str])->list[str]:
+def get_error_files(files:list[str],errors:pd.DataFrame)->list[str]:
     """
     Receive the list of all file locations, return the ones with errors
     """
-    id_dict = {
-        "1148477": "Value1",
-        "1062755": "Value2",
-        "1062762": "Value3",
-        "1063516": "Value4",
-        "1063517": "Value5",
-        "1063538": "Value6",
-        "1069119": "Value7",
-        "1069121": "Value8",
-        "1069122": "Value9",
-        "1069144": "Value10"
-    }
+    keys = list(errors["ID"])
+
+    # Creating the dictionary with random values
+    random_dict = {str(key): ' ' for key in keys}
+
     
     return_list = []
     # Each file looks like this: './YYYY/MM/DD/ID.xlsx'
@@ -396,7 +436,7 @@ def get_error_files(files:list[str])->list[str]:
     for file in files:
         splits = file.split('/')
         file_id = splits[-1].split('.')[0]
-        if file_id in id_dict:
+        if file_id in random_dict:
             return_list.append(file)
     
     return return_list
@@ -404,8 +444,9 @@ def get_error_files(files:list[str])->list[str]:
 if __name__ == "__main__":
     cols = ColumnNames()
     pi = ParseInfo(cols.get_cols())
-    # files = cols.file_names
-    files = ['./2022/10/12.1004929.xlsx']
-    pi.create_aggregate(files)
+    files = cols.file_names
+    # errors = pd.read_excel('Errors.xlsx')
+    # files = get_error_files(files,errors)
+    pi.create_aggregate(files,file_name="Miovision Aggregate Data.xlsx")
     # pi.delete_files()
 

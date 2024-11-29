@@ -5,6 +5,7 @@ import time
 import numpy as np
 import asyncio
 import json
+from tqdm import tqdm
 
 def reformat_dict(data_dict:dict)->dict:
     """
@@ -55,7 +56,7 @@ async def validate_data(file_name:str,auth_file_name:str,validation_file_name):
         
         
         
-        for i,id in enumerate(ids):
+        for i,id in enumerate(tqdm(ids)):
             await page.goto(f'https://datalink.miovision.com/studies/{id}')
             out_data_dict['ID'].append(id)
             out_data_dict['Link'].append(f'https://datalink.miovision.com/studies/{id}')
@@ -124,7 +125,7 @@ def get_credentials(auth_file:str):
     browser.close()
 if __name__ == '__main__':
     auth_file = './python_auth.json'
-    excel_file = 'Five File.xlsx'
-    validation_file_name = "Five_files.xlsx"
+    excel_file = 'Miovision Aggregate Data.xlsx'
+    validation_file_name = "Main-test_validation.xlsx"
     #get_credentials(auth_file)
     asyncio.run(validate_data(excel_file,auth_file,validation_file_name))
