@@ -104,25 +104,64 @@ class ParseInfo:
             # get directional data for out
             movement_dict = self.get_directional_data_out(sheet_data,total)
             
+            # make directional adjusted out
+            self.directional_out_adjusted(sheet_data,total)
+            
             # add the int total, assume that it is in the last column
             grand_total = int(total.iloc[grand_total_index][total.columns[-1]].iloc[0])
             sheet_data['Int. Total'] = grand_total
             
-            # extract categories
+            # Extract vehicle class breakdown for all of the directions combined
             self.extract_attributes(sheet_data,total)
             
+            # Update the in volumes to fill in gaps for pedestrian studies 
             self.update_directional_data_in(sheet_data,movement_dict)
+            
+            # Show the opposite direction in and out for one-ways
             self.detect_one_ways(sheet_data)
             
             return sheet_data
         else:
             self.files_to_delete.append(file)
             return None
+    
+    def return_adjusted_volume(self,total:pd.DataFrame):
+        """
+        For given file, return the breakdown of the total row excluding the
+        Omitted classes: Bikes on road, peds, and bikes on crosswalk
+        """
         
+        # classes to ommit
+        omission_classes = {"Bicycles on Road":'', "Pedestrians":'',"Bicycles on Crosswalk":''}
+        directions = ['Southbound','Westbound','Northbound','Eastbound']
+        
+        # Retrieve the rows containing the total col and breakdowns
+        # Retreive the last col which is the column of interest for us
+        grand_total_index = total.index[total['Leg']=='Grand Total'].tolist()[0]
+        grand_total = total.loc[grand_total_index,total.columns[-1]]
+        row_index = total.index[total['Leg'] == '% Total'].tolist()[0]
+        labels = total.iloc[row_index + 1:]['Leg'].tolist()
+        totals = total.iloc[row_index + 1:][total.columns[-1]].tolist()
+        
+        
+        for i in range(len(labels)):
+            # only even rows have values, odd rows have percentages
+            if i % 2 == 0 and labels[i] in omission_classes:
+                # only if data is not for Pedestrians and Bicycles on Crosswalk
+                if pd.notna(totals[i]):
+                    try:
+                        grand_total -= int(totals[i])
+                    except:
+                        print('Problem in return_adjusted_volume')
+        
+        return grand_total
+                    
+                
+    
     def get_directional_data_out(self,data_dict:dict,total:pd.DataFrame):
         """
-        Get out data for each dimension, which really means the all the flow going in the opposite direction
-        Super confusing even to me, but hey, that's how they asked for it
+        Get out data for each dimension, which really means all the flow going in the opposite direction
+        Super confusing even to me, but hey, that's how they asked for it.
         """
         direction_num_mapping = {
             'Southbound In' : 1,
@@ -240,7 +279,132 @@ class ParseInfo:
             
             data_dict[f'{num_direction_mapping[direction]} Out'] = out_total
         return movement_dict
+    
+    def directional_out_adjusted(self,data_dict:dict,total:pd.DataFrame):
+        """
+        Does the same task as get_directional_data_out with tweaks large enough that 
+        a new function needed to be created to make new columns that contain adjusted out volume
+        rows.
+        """
+        direction_num_mapping = {
+            'Southbound In' : 1,
+            'Westbound In' : 2,
+            'Northbound In' : 3,
+            'Eastbound In' : 4
+        }
+        
+        num_direction_mapping = {
+            1 : 'Southbound',
+            2 : 'Westbound',
+            3 : 'Northbound',
+            4 : 'Eastbound'
+        }
+        
+        movements = {
+            'Right' : True,
+            'Thru' : True,
+            'Left' : True,
+            'U-Turn' : True
+
+        }
+        
+        total_row_index = total.index[total['Leg'] == 'Grand Total'].tolist()[0]
+        direction_row = 0
+        start_row = 1
+        directions = []
+        movement_dict = {}
+        cols = total.columns.tolist()
+        valid_direction_flag = False
+        last_direction = ''
+        
+        # if data_dict['Date'] == '2022/10/17':
+        #     print(total.head())
+        
+        # populate the movement column
+        for col in cols:
+            # try to add last direction to last_direction
+            direction = total.iloc[direction_row][col]
+            movement = total.iloc[start_row][col]
+            try:
+                found = direction_num_mapping[f'{direction} In']
+                last_direction = direction
+                valid_direction_flag = True
+            except:
+                # Only stop reading data, aka valid_direction_flag = False,
+                # When a direction is found that is not either
+                # NB,SB,EB,WB
+                if type(direction) == type(str()):
+                    if 'bound' in direction:
+                        valid_direction_flag = False
+                pass
+            
+            try:
+                # Check to see if we've hit the last column for the direction
+                # If so the valid direction should be set to false
+                if valid_direction_flag:            
+                    # Edge case for some files where instead of the 'Thru' Column, it has it under 'Direction'
+                    adjusted_value = self.return_adjusted_volume(total.loc[:,:col])            
+                    if movement == 'Direction':
+                        movement_dict[f'{last_direction[0]} Thru'] = adjusted_value
+                    else:
+                        found = movements[movement]
+                        move = f'{last_direction[0]} {movement}'
+                        
+                        # This way, even if there are multiple movements detected, we add them up
+                        if move in movement_dict:
+                            movement_dict[move] += adjusted_value
+                        else:
+                            movement_dict[move] = adjusted_value
+            except:
+                pass
+
+        for column in list(data_dict.keys()):
+            try:
+                direction_num = direction_num_mapping[column]
+                directions.append(direction_num)
+            except:
+                pass
+        
+
+        
+        for direction in directions:
+            # get directions for calculations
+            out_total = 0
+            thru_direction = direction + 2
+            if thru_direction == 6:
+                thru_direction = 2
+            elif thru_direction == 5:
+                thru_direction = 1
+            uturn_direction = direction + 0
+            counter_clockwise_direction = direction - 1
+            if counter_clockwise_direction < 1:
+                counter_clockwise_direction = 4
+            clockwise_direction = direction + 1
+            if clockwise_direction > 4:
+                clockwise_direction = 1
+            
+            # try to add each direction
+            try:
+                out_total += movement_dict[f'{num_direction_mapping[thru_direction][0]} Thru']
+            except:
+                pass
                 
+            try:
+                out_total += movement_dict[f'{num_direction_mapping[counter_clockwise_direction][0]} Left']
+            except:
+                pass
+            
+            try:
+                out_total += movement_dict[f'{num_direction_mapping[clockwise_direction][0]} Right']
+            except:
+                pass
+            
+            try:
+                out_total += movement_dict[f'{num_direction_mapping[uturn_direction][0]} U-Turn']
+            except:
+                pass
+            
+            data_dict[f'{num_direction_mapping[direction]} Adj. Out'] = out_total
             
             
     
@@ -400,6 +564,9 @@ class ParseInfo:
         
     
     def extract_attributes(self,data_dict:dict,total:pd.DataFrame,modifier=''):
+        """
+        Function extracting the vehicle class breakdown for the given scope of data
+        """
         row_index = total.index[total['Leg'] == '% Total'].tolist()[0]
         labels = total.iloc[row_index + 1:]['Leg'].tolist()
         totals = total.iloc[row_index + 1:][total.columns[-1]].tolist()
@@ -447,6 +614,6 @@ if __name__ == "__main__":
     files = cols.file_names
     # errors = pd.read_excel('Errors.xlsx')
     # files = get_error_files(files,errors)
-    pi.create_aggregate(files,file_name="Miovision Aggregate Data.xlsx")
+    pi.create_aggregate(files,file_name="Miovision Aggregate Data (Out Vol. Adjustment).xlsx")
     # pi.delete_files()
 
