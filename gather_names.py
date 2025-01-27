@@ -86,7 +86,7 @@ class ColumnNames:
         return found_html
 
     def dfs_wrapper(self)->None:
-        locations = ['./2022','./2023']
+        locations = ['./2024']
         file_names = []
         
         for i in range(len(locations)):

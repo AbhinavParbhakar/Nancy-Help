@@ -95,7 +95,10 @@ async def validate_data(file_name:str,auth_file_name:str,validation_file_name):
                     # Log all of the discrepancies, as long as the value exists (actual > -1, np.nan would be False)
                     # and if the actual value does not equal the estimate
                     if actual != estimate and actual > -1:
-                        print(f'Discrepancy within {id} for {col} direction')
+                        with open('./errors1.txt','w') as file:
+                            file.write(f'Discrepancy within {id} for {col} direction')
+                            print(f'Discrepancy within {id} for {col} direction')
+                            file.close()
                         
                 except Exception as e:
                     print(e)
@@ -125,7 +128,8 @@ def get_credentials(auth_file:str):
     browser.close()
 if __name__ == '__main__':
     auth_file = './python_auth.json'
-    excel_file = 'Miovision Aggregate Data.xlsx'
-    validation_file_name = "Main-test_validation.xlsx"
+    excel_file = 'Miovision Aggregate Data 2024.xlsx'
+    validation_file_name = "2024_validation.xlsx"
     #get_credentials(auth_file)
     asyncio.run(validate_data(excel_file,auth_file,validation_file_name))
+    
