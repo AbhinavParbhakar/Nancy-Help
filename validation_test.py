@@ -47,7 +47,7 @@ async def validate_data(file_name:str,auth_file_name:str,validation_file_name):
     ids = list(data.loc[:,id_col])
     
     async with async_playwright() as playwright:
-        browser : Browser = await playwright.chromium.launch(headless=False)
+        browser : Browser = await playwright.chromium.launch(headless=True)
         context : BrowserContext= await browser.new_context(storage_state=auth_file_name)
         context.set_default_navigation_timeout(300000)
         
@@ -95,8 +95,8 @@ async def validate_data(file_name:str,auth_file_name:str,validation_file_name):
                     # Log all of the discrepancies, as long as the value exists (actual > -1, np.nan would be False)
                     # and if the actual value does not equal the estimate
                     if actual != estimate and actual > -1:
-                        with open('./errors1.txt','w') as file:
-                            file.write(f'Discrepancy within {id} for {col} direction')
+                        with open('./errors1.txt','a') as file:
+                            file.write(f'Discrepancy within {id} for {col} direction\n')
                             print(f'Discrepancy within {id} for {col} direction')
                             file.close()
                         
@@ -127,9 +127,9 @@ def get_credentials(auth_file:str):
     page.close()
     browser.close()
 if __name__ == '__main__':
-    auth_file = './python_auth.json'
-    excel_file = 'Miovision Aggregate Data 2024.xlsx'
-    validation_file_name = "2024_validation.xlsx"
-    #get_credentials(auth_file)
+    auth_file = './auth.json'
+    excel_file = './Miovision Aggregate Data Updated 2014-2024.xlsx'
+    validation_file_name = "2014-2024_validation.xlsx"
+    # get_credentials(auth_file)
     asyncio.run(validate_data(excel_file,auth_file,validation_file_name))
     

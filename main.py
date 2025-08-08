@@ -69,12 +69,12 @@ class ParseInfo:
         duration = (end_date_time - start_date_time).total_seconds()
         one_day = 24 * 60 * 60
         one_hour = 60*60
-        difference = duration - one_day
+        difference = abs(duration - one_day)
 
-        if difference >= 0.0:
+        if difference <= 60:
             # get id and date from file name
             sheet_data = {'Id' : file_id}
-            sheet_data['Date'] = file_breakdown[1] + '/' + file_breakdown[2] + '/' + file_breakdown[3]
+            sheet_data['Date'] = file_breakdown[2] + '/' + file_breakdown[3] + '/' + file_breakdown[4]
             sheet_data['Time (hrs)'] = duration/one_hour
             sheet_data['Study Type'] = study_type
             
@@ -107,6 +107,8 @@ class ParseInfo:
             movement_dict = self.get_directional_data_out(sheet_data,total)
             
             # make directional adjusted out
+            if int(file_id) == 195222:
+                print("Jere")
             self.directional_out_adjusted(sheet_data,total)
             
             # add the int total, assume that it is in the last column
@@ -616,6 +618,6 @@ if __name__ == "__main__":
     files = cols.file_names
     # errors = pd.read_excel('Errors.xlsx')
     # files = get_error_files(files,errors)
-    pi.create_aggregate(files,file_name="Miovision Aggregate Data Updated 2025).xlsx")
+    pi.create_aggregate(files,file_name="Miovision Aggregate Data 2025.xlsx")
     # pi.delete_files()
 

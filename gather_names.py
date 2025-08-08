@@ -86,7 +86,10 @@ class ColumnNames:
         return found_html
 
     def dfs_wrapper(self)->None:
-        locations = ['./2022','./2023','./2024']
+        start_year = 2025
+        end_year = 2025
+        years = range(start_year,end_year + 1,1)
+        locations = [f'./Miovision/{year}' for year in years]
         file_names = []
         
         for i in range(len(locations)):

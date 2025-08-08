@@ -87,7 +87,7 @@ async function extract_files(start_date,end_date,sessionId){
     const chromium = playwright.chromium
 
     const browser = await chromium.launch({
-        headless:false
+        headless:true
     })
 
     const context = await browser.newContext({
@@ -190,8 +190,8 @@ async function main(){
         11: 30, // November
         12: 31  // December
       };
-    let start_year = 2022
-    const end_year = 2024
+    let start_year = 2025
+    const end_year = 2025
     const sessionId = get_session_id(userSavePath)
     while (start_year <= end_year){
         for(let i = 1;i <= 12;i++){
@@ -207,6 +207,6 @@ async function main(){
     })
 }
 
-//extract_session()
+// extract_session()
 // download_file(downloadPath)
 main()

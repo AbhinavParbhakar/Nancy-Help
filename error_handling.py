@@ -53,5 +53,5 @@ def create_error_file(filename:str):
     
 
 if __name__ == "__main__":
-    filename = "./Errors.txt"
+    filename = "./errors1.txt"
     create_error_file(filename=filename)

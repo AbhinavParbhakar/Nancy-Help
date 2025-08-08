@@ -9,7 +9,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "��#\u0000 \u0000N\u0000a\u0000n\u0000c\u0000y\u0000-\u0000H\u0000e\u0000l\u0000p\u0000\r\u0000 \u0000",
   "dependencies": {
     "@duffel/api": "^2.13.0",
     "@nwpr/airport-codes": "^3.0.3",
@@ -18,7 +18,7 @@
     "date-fns": "^3.6.0",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "playwright": "^1.44.1",
+    "playwright": "^1.54.1",
     "playwright-extra": "^4.3.6",
     "puppeteer": "^22.11.0",
     "puppeteer-extra": "^3.3.6",
