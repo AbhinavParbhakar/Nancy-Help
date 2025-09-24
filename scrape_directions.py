@@ -243,7 +243,7 @@ def scrape_miovision_screenshots(logger:logging.Logger, playwright:Playwright,co
     """
     
     # Configure browser set up
-    browser = playwright.chromium.launch()
+    browser = playwright.chromium.launch(headless=False)
     context = browser.new_context(storage_state=config.AUTH_FILE_NAME)
     context.set_default_navigation_timeout(config.MIOVISION_ID_MAX_DEFAULT_NAVIGATION_TIMEOUT)
     page = context.new_page()
@@ -263,13 +263,15 @@ def scrape_miovision_screenshots(logger:logging.Logger, playwright:Playwright,co
         logger.info(f"[scrape_miovision_screenshots] Navigating to {miovision_id}")
         page.goto(f'{config.AUTH_LINK}studies/{miovision_id}')
         page.wait_for_load_state()
-         
-        page.locator(config.MIOVISION_SCREENSHOT_LOCATOR).click()
         
-        logger.info(f"[scrape_miovision_screenshots] Taking screenshot for {miovision_id}")
-        page.wait_for_load_state()
-        time.sleep(2)
-        page.screenshot(path=image_path)
+        # Check if the study results in a 404
+        if "404" not in page.url:  
+            page.locator(config.MIOVISION_SCREENSHOT_LOCATOR).click()
+            
+            logger.info(f"[scrape_miovision_screenshots] Taking screenshot for {miovision_id}")
+            page.wait_for_load_state()
+            time.sleep(2)
+            page.screenshot(path=image_path)
     
     # Cleaning up automation session
     logger.info("[scrape_miovision_screenshots] Closing page, context, and browser")
