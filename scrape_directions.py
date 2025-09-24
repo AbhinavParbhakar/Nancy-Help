@@ -3,11 +3,14 @@ from dataclasses import dataclass
 from dotenv import dotenv_values
 import logging
 import datetime
+import os
+import time
 
 # Gobal Variables
 MAX_AUTH_DEFAULT_NAV_TIMEOUT = 60000 # miliseconds
 MAX_MIOVISION_ID_MAX_DEFAULT_NAVIGATION_TIMEOUT = 90000# milliseconds
-SCRAPING_START_YEAR = 2010
+MIOVISION_SCREENSHOT_MAX_LOCATOR_TIMEOUT = 240000 #milliseconds
+SCRAPING_START_YEAR = 2021
 SCRAPING_END_YEAR = 2024
 
 def configure_logging()->logging.Logger:
@@ -38,6 +41,9 @@ class ConfigurationDetails:
     SCRAPING_END_YEAR : int
     MIOVISION_ID_LOCATOR : str
     MIOVISION_ID_MAX_DEFAULT_NAVIGATION_TIMEOUT:int
+    MIOVISION_SCREENSHOTS_FOLDER_NAME:str
+    MIOVISION_SCREENSHOT_LOCATOR:str
+    MIOVISION_SCREENSHOT_MAX_LOCATOR_TIMEOUT:int
 
 def create_auth_credentials(playwright:Playwright, config: ConfigurationDetails,logger:logging.Logger)->None:
     """
@@ -213,6 +219,66 @@ def scrape_miovision_ids(playwright:Playwright,config:ConfigurationDetails,logge
     browser.close()
     return miovision_ids
 
+def scrape_miovision_screenshots(logger:logging.Logger, playwright:Playwright,config:ConfigurationDetails,miovision_ids:list[str])->None:
+    """
+    Given the list of miovision IDs, visit each webpage, and save a screenshot of the location mapping for each one in local storage. The images
+    will be stored in the name of folder specified in the ``Configuration Details`` object. 
+    
+    ### Parameters
+    1. logger : ``logging.Logger``
+        - Logger object used to create logs
+    2. playwright : ``Playwright``
+        - Playwright object used to create browsers to be used for automation
+    3. config : ``ConfigurationDetails``
+        - Contains the details for congiration of the browser
+    4. miovision_ids : ``list[str]``
+        - List of IDs to be used to guide scraping process
+    
+    ### Effects
+    Starts headless browsers and downloads screenshots in local storage
+    
+    ### Returns
+    
+    ``None``
+    """
+    
+    # Configure browser set up
+    browser = playwright.chromium.launch()
+    context = browser.new_context(storage_state=config.AUTH_FILE_NAME)
+    context.set_default_navigation_timeout(config.MIOVISION_ID_MAX_DEFAULT_NAVIGATION_TIMEOUT)
+    page = context.new_page()
+    page.set_default_timeout(config.MIOVISION_SCREENSHOT_MAX_LOCATOR_TIMEOUT)
+    
+    logger.info("[scrape_miovision_screenshots] Configured browser")
+    
+    # Create base folder if it doesn't exist
+    relative_folder_path = f'./{config.MIOVISION_SCREENSHOTS_FOLDER_NAME}'
+    if not os.path.exists(relative_folder_path):
+        os.mkdir(relative_folder_path)
+    
+    
+    for miovision_id in miovision_ids:
+        image_path = f'{relative_folder_path}/{miovision_id}.png'
+        
+        logger.info(f"[scrape_miovision_screenshots] Navigating to {miovision_id}")
+        page.goto(f'{config.AUTH_LINK}studies/{miovision_id}')
+        page.wait_for_load_state()
+         
+        page.locator(config.MIOVISION_SCREENSHOT_LOCATOR).click()
+        
+        logger.info(f"[scrape_miovision_screenshots] Taking screenshot for {miovision_id}")
+        page.wait_for_load_state()
+        time.sleep(2)
+        page.screenshot(path=image_path)
+    
+    # Cleaning up automation session
+    logger.info("[scrape_miovision_screenshots] Closing page, context, and browser")
+    page.close()
+    context.close()
+    browser.close()
+        
+    
+        
 def main(config:ConfigurationDetails,logger:logging.Logger):
     """
     Main method to orchestrate the flow of execution
@@ -233,7 +299,8 @@ def main(config:ConfigurationDetails,logger:logging.Logger):
         logger.info("Started subroutine for auth credentials generation.")
         create_auth_credentials(playwright=playwright,config=config,logger=logger)
         miovision_ids = scrape_miovision_ids(playwright=playwright,config=config,logger=logger)
-        print(len(miovision_ids),miovision_ids[:5])
+        scrape_miovision_screenshots(logger=logger,playwright=playwright,config=config,miovision_ids=miovision_ids)
+        
 
 if __name__ == "__main__":
     config = dotenv_values(".env")
@@ -243,6 +310,8 @@ if __name__ == "__main__":
     auth_password_locator = 'input[name="password"]'
     auth_password_submit_button_locator = 'button[type="submit"]'
     miovision_id_locator = 'div.miogrey'
+    miovision_screenshots_folder_name = "Screenshots"
+    miovision_screenshot_locator = 'button.gm-control-active.gm-fullscreen-control'
     
     auth_config = ConfigurationDetails(
         AUTH_FILE_NAME=config['AUTH_FILE_NAME'],
@@ -257,7 +326,10 @@ if __name__ == "__main__":
         SCRAPING_START_YEAR=SCRAPING_START_YEAR,
         SCRAPING_END_YEAR=SCRAPING_END_YEAR,
         MIOVISION_ID_LOCATOR=miovision_id_locator,
-        MIOVISION_ID_MAX_DEFAULT_NAVIGATION_TIMEOUT=MAX_MIOVISION_ID_MAX_DEFAULT_NAVIGATION_TIMEOUT
+        MIOVISION_ID_MAX_DEFAULT_NAVIGATION_TIMEOUT=MAX_MIOVISION_ID_MAX_DEFAULT_NAVIGATION_TIMEOUT,
+        MIOVISION_SCREENSHOTS_FOLDER_NAME=miovision_screenshots_folder_name,
+        MIOVISION_SCREENSHOT_LOCATOR=miovision_screenshot_locator,
+        MIOVISION_SCREENSHOT_MAX_LOCATOR_TIMEOUT=MIOVISION_SCREENSHOT_MAX_LOCATOR_TIMEOUT
     )
     
     logger = configure_logging()
