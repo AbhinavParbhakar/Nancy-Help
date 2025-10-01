@@ -243,7 +243,7 @@ def scrape_miovision_screenshots(logger:logging.Logger, playwright:Playwright,co
     """
     
     # Configure browser set up
-    browser = playwright.chromium.launch(headless=False)
+    browser = playwright.chromium.launch()
     context = browser.new_context(storage_state=config.AUTH_FILE_NAME)
     context.set_default_navigation_timeout(config.MIOVISION_ID_MAX_DEFAULT_NAVIGATION_TIMEOUT)
     page = context.new_page()

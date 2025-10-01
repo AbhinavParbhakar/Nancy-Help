@@ -175,7 +175,7 @@ async function extract_session(){
     })
 }
 
-async function main(){
+async function main(start_year,end_year){
     const daysInMonth = {
         1: 31,  // January
         2: 28,  // February (non-leap year)
@@ -190,13 +190,21 @@ async function main(){
         11: 30, // November
         12: 31  // December
       };
-    let start_year = 2025
-    const end_year = 2025
     const sessionId = get_session_id(userSavePath)
+    let start_date = ""
+    let end_date = ""
     while (start_year <= end_year){
         for(let i = 1;i <= 12;i++){
-            const start_date = `${start_year}-${i}-01`
-            const end_date = `${start_year}-${i}-${daysInMonth[i]}`
+            const next_month = (i+1)%12
+            if (i == 12){
+                start_date = `${start_year}-${i}-01`
+                end_date = `${start_year + 1}-1-01`
+            }else{
+                start_date = `${start_year}-${i}-01`
+                end_date = `${start_year}-${i+1}-01`
+            }
+            
+            console.log(start_date,end_date)
             await extract_files(start_date,end_date,sessionId)
         }
         start_year += 1
@@ -209,4 +217,4 @@ async function main(){
 
 // extract_session()
 // download_file(downloadPath)
-main()
+main(2016,2017)
